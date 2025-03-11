@@ -24,7 +24,7 @@ classifiers = [
 dependencies = []
 license = {text = "AGPL"}
 requires-python = ">=3.8"
-version = "1.0.32"
+version = "1.1.0"
 
 [project.entry-points."ckan.plugins"]
 clamav="ckanext.clamav.plugin:ClamavPlugin"
