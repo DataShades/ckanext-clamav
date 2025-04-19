@@ -1,20 +1,21 @@
 import os
-
-import requests
-import pytest
 from pathlib import Path
 
-from ckan.tests import helpers, factories
+import pytest
+import requests
 from werkzeug.datastructures import FileStorage as FlaskFileStorage
+
+from ckan.tests import factories, helpers
 
 clean_string = b"safe file content"
 EICAR_URL = "https://secure.eicar.org/eicar.com.txt"
 EICAR_LOCAL_PATH = Path("tests/eicar.com.txt")
 
-# This is to allow localhost testing or container testing by setting CLAMAV_HOST, default localhost
-clamav_host = os.environ.get('CLAMAV_HOST', 'localhost')
-clamav_port = os.environ.get('CLAMAV_PORT', '3310')
-clamav_socket = os.environ.get('CLAMAV_SOCKET', '/var/run/clamav/clamd.ctl')
+# This is to allow localhost testing or container testing by setting CLAMAV_HOST,
+# default localhost
+clamav_host = os.environ.get("CLAMAV_HOST", "localhost")
+clamav_port = os.environ.get("CLAMAV_PORT", "3310")
+clamav_socket = os.environ.get("CLAMAV_SOCKET", "/var/run/clamav/clamd.ctl")
 
 
 @pytest.fixture(scope="session")
@@ -28,12 +29,12 @@ def eicar_file_path():
     return EICAR_LOCAL_PATH
 
 
-@pytest.mark.usefixtures(u"clean_db", u"clean_index", u'with_plugins')
+@pytest.mark.usefixtures("clean_db", "clean_index", "with_plugins")
 @pytest.mark.ckan_config("ckan.plugins", "clamav")
 @pytest.mark.ckan_config("ckanext.clamav.upload_unscanned", "True")
 class TestUploadedUnscannedFlag:
 
-    def test_clamav_not_called_on_upload_of_test_file(self, eicar_file_path):
+    def test_clamav_not_called_on_upload_of_test_file(self, eicar_file_path: Path):
         user = factories.Sysadmin()
         dataset = factories.Dataset(user=user)
 
@@ -43,7 +44,13 @@ class TestUploadedUnscannedFlag:
                 context={"user": user["name"], "ignore_auth": False},
                 package_id=dataset["id"],
                 url="",
-                upload=FlaskFileStorage(stream=f, filename="eicar.com.txt", content_type="text/plain"),
+                upload=FlaskFileStorage(
+                    stream=f,
+                    filename="eicar.com.txt",
+                    content_type="text/plain",
+                ),
                 name="Infected File",
             )
-            assert "eicar.com.txt" in str(res), res  # provide nice message if we did not throw exception
+            assert "eicar.com.txt" in str(
+                res,
+            ), res  # provide nice message if we did not throw exception

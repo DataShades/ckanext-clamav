@@ -1,24 +1,18 @@
-from __future__ import annotations
 import logging
-from typing import Optional, Any, Union
+from typing import Any, Optional, Union
 
-from clamd import (
-    ClamdUnixSocket,
-    ClamdNetworkSocket,
-    ConnectionError as ClamConnectionError,
-    BufferTooLongError,
-)
+from clamd import BufferTooLongError, ClamdNetworkSocket, ClamdUnixSocket
+from clamd import ConnectionError as ClamConnectionError
 from werkzeug.datastructures import FileStorage
 
-import ckan.model as model
-import ckan.logic as logic
+from ckan import logic
+from ckan import model
 from ckan.exceptions import CkanConfigurationException
 from ckan.types import ErrorDict
 
 from . import config as c
-from .config import ClamAvStatus
 from .adapters import CustomClamdNetworkSocket
-
+from .config import ClamAvStatus
 
 log = logging.getLogger(__name__)
 
@@ -50,9 +44,10 @@ def scan_file_for_viruses(data_dict: dict[str, Any]) -> None:
             raise logic.ValidationError(
                 {
                     "Virus checker": [
-                        "The clamav is disabled. Can't upload the file. Contact administrator"
-                    ]
-                }
+                        "The clamav is disabled. Can't upload the file. "
+                        "Contact administrator",
+                    ],
+                },
             )
     elif status in (ClamAvStatus.ERR_FILELIMIT,):
         log.warning(signature)
@@ -79,32 +74,36 @@ def _get_package_id(data_dict: dict[str, Any]) -> str:
     If resource is is not here for some reason, just return a placeholder, because
     we are using it only for logging"""
 
-    resource_id: str | None = data_dict.get("id")
+    resource_id: Union[str, None] = data_dict.get("id")
 
     if not resource_id:
         return "<PACKAGE IS NOT CREATED>"
     resource = model.Resource.get(resource_id)
     if resource is None:
-        return "<PACKAGE IS NOT CREATED: resource_id: {}>".format(resource_id)
+        return f"<PACKAGE IS NOT CREATED: resource_id: {resource_id}>"
     return resource.package.id
 
 
 def _scan_filestream(file: FileStorage) -> tuple[str, Optional[str]]:
-    """
+    """Scan a file stream for malware using ClamAV.
 
     Args:
-        file (FileStorage): werkzeug FileStorage object
+        file (FileStorage): werkzeug FileStorage object containing the file to scan
 
     Returns:
-        tuple[str, Optional[str]]: contains a status_code and a malware signature if found
-        if status is returned error code, then instead of the signature there will
-        be an error message.
+        A tuple containing:
+            - status_code (str): The scan status code
+            - signature (Optional[str]): If malware found, contains the its signature.
+                If an error occurred, contains the error message.
+                If no malware found, is None.
     """
 
     cd: Union[ClamdUnixSocket, ClamdNetworkSocket] = _get_conn()
 
     try:
-        scan_result: dict[str, tuple[str, str | None]] | None = cd.instream(file.stream)
+        scan_result: Union[dict[str, tuple[str, Optional[str]]], None] = cd.instream(
+            file.stream,
+        )
     except BufferTooLongError:
         error_msg: str = (
             "The uploaded file exceeds the filesize limit. "
@@ -144,20 +143,20 @@ def _get_conn() -> Union[ClamdUnixSocket, CustomClamdNetworkSocket]:
     if c.socket_type() == c.SocketTypes.UNIX:
         socket_path: str = c.socket_path()
         return ClamdUnixSocket(socket_path, conn_timeout)
-    else:
-        tcp_host: str = c.tcp_host()
-        tcp_port = c.tcp_port()
+    tcp_host: str = c.tcp_host()
+    tcp_port = c.tcp_port()
 
-        if not tcp_port or not tcp_host:
-            raise CkanConfigurationException(
-                "Clamd: please, provide TCP/IP host:port for ClamAV received host: '{}', port: '{}'".format(tcp_host, tcp_port)
-            )
+    if not tcp_port or not tcp_host:
+        raise CkanConfigurationException(
+            f"Clamd: please, provide TCP/IP host:port for ClamAV "
+            f"received host: '{tcp_host}', port: '{tcp_port}'",
+        )
 
-        return CustomClamdNetworkSocket(tcp_host, tcp_port, conn_timeout)
+    return CustomClamdNetworkSocket(tcp_host, tcp_port, conn_timeout)
 
 
 def _get_unscanned_file_message(file: FileStorage, pkg_id: str) -> str:
     return (
         "The unscanned file will be uploaded because unscanned fileupload is enabled. "
-        f"Filename: {file.filename}, package_id: {pkg_id}, name: {file.filename or None}"
+        f"File: {file.filename}, pkg: {pkg_id}, name: {file.filename or None}"
     )

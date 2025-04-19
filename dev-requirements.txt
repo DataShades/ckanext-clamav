@@ -1,5 +1,4 @@
 ckan
-ckantoolkit>=0.0.4
 pytest
 pytest-cov
 pytest-ckan

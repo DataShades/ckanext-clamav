@@ -9,15 +9,15 @@ class TestClamAVConfig:
 
     def test_config_defaults(self):
         assert c.upload_unscanned()
-        assert c.socket_type() == 'unix'
-        assert c.socket_path() == '/var/run/clamav/clamd.ctl'
+        assert c.socket_type() == "unix"
+        assert c.socket_path() == "/var/run/clamav/clamd.ctl"
         assert c.conn_timeout() == 60
         assert c.tcp_host() is None
         assert c.tcp_host() is None
 
     @pytest.mark.ckan_config("ckanext.clamav.socket_path", "/tmp/socket")
     def test_config_overrides_socket_path(self):
-        assert c.socket_path() == '/tmp/socket'
+        assert c.socket_path() == "/tmp/socket"
 
     @pytest.mark.ckan_config("ckanext.clamav.timeout", "10")
     def test_config_overrides_timeout(self):
@@ -44,7 +44,10 @@ class TestClamAVConfig:
         with pytest.raises(CkanConfigurationException) as excinfo:
             c.socket_type()
             pytest.fail(
-                "Exception not thrown on invalid socket type")  # provide nice message if we did not throw exception
+                "Exception not thrown on invalid socket type",
+            )  # provide nice message if we did not throw exception
 
         # Verify Exception message
-        assert "Clamd: unsupported connection type" in str(excinfo.value), str(excinfo.value)
+        assert "Clamd: unsupported connection type" in str(excinfo.value), str(
+            excinfo.value,
+        )

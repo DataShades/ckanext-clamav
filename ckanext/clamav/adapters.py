@@ -12,6 +12,7 @@ class CustomClamdNetworkSocket(ClamdNetworkSocket):
     Args:
         ClamdNetworkSocket (ClamdNetworkSocket): original clamd network adapter
     """
+
     def _init_socket(self):
         """
         internal use only
@@ -21,6 +22,6 @@ class CustomClamdNetworkSocket(ClamdNetworkSocket):
             self.clamd_socket.settimeout(self.timeout)
             self.clamd_socket.connect((self.host, self.port))
 
-        except (socket.error, socket.timeout):
+        except (OSError, socket.timeout):
             e = sys.exc_info()[1]
             raise ConnectionError(self._error_message(e))

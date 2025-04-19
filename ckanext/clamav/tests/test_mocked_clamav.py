@@ -1,13 +1,13 @@
-from unittest.mock import patch, MagicMock
-
-import requests
-import pytest
 from pathlib import Path
-import ckantoolkit as tk
-from clamd import BufferTooLongError, ConnectionError
+from unittest.mock import MagicMock, patch
 
-from ckan.tests import helpers, factories
+import pytest
+import requests
+from clamd import BufferTooLongError, ConnectionError
 from werkzeug.datastructures import FileStorage as FlaskFileStorage
+
+import ckan.plugins.toolkit as tk
+from ckan.tests import factories, helpers
 
 clean_string = b"safe file content"
 EICAR_URL = "https://secure.eicar.org/eicar.com.txt"
@@ -25,14 +25,16 @@ def eicar_file_path():
     return EICAR_LOCAL_PATH
 
 
-@pytest.mark.usefixtures(u"clean_db", u"clean_index", u'with_plugins')
+@pytest.mark.usefixtures("clean_db", "clean_index", "with_plugins")
 @pytest.mark.ckan_config("ckan.plugins", "clamav")
 @pytest.mark.ckan_config("ckanext.clamav.socket_type", "unix")
 @pytest.mark.ckan_config("ckanext.clamav.socket_path", "/this/is/mocked")
 class TestMockClamAVLimitTesting:
 
     @pytest.mark.ckan_config("ckanext.clamav.upload_unscanned", "False")
-    def test_clamav_hit_file_limit_error_throw_validation_error(self, eicar_file_path):
+    def test_clamav_hit_file_limit_error_throw_validation_error(
+        self, eicar_file_path: Path,
+    ):
         with patch("ckanext.clamav.utils.ClamdUnixSocket") as mock_unix_socket:
             # Make the instance that gets returned by ClamdUnixSocket()
             mock_clamd = MagicMock()
@@ -49,18 +51,25 @@ class TestMockClamAVLimitTesting:
                         context={"user": user["name"], "ignore_auth": False},
                         package_id=dataset["id"],
                         url="",
-                        upload=FlaskFileStorage(stream=f, filename="eicar.com.txt", content_type="text/plain"),
+                        upload=FlaskFileStorage(
+                            stream=f,
+                            filename="eicar.com.txt",
+                            content_type="text/plain",
+                        ),
                         name="Infected File",
                     )
                     pytest.fail(
-                        "Was not blocked:{}".format(res))  # provide nice message if we did not throw exception
+                        f"Was not blocked:{res}",
+                    )  # provide nice message if we did not throw exception
 
                 # Verify Rate limit error was thrown
-                assert "{'Virus checker': ['The uploaded file exceeds the filesize limit. The file will not be scanned']}" in str(
-                    excinfo.value), str(excinfo.value)
+                assert (
+                    "{'Virus checker': ['The uploaded file exceeds the filesize limit. "
+                    "The file will not be scanned']}" in str(excinfo.value)
+                ), str(excinfo.value)
 
     @pytest.mark.ckan_config("ckanext.clamav.upload_unscanned", "True")
-    def test_clamav_hit_file_limit_error_allow_unscanned(self, eicar_file_path):
+    def test_clamav_hit_file_limit_error_allow_unscanned(self, eicar_file_path: Path):
         with patch("ckanext.clamav.utils.ClamdUnixSocket") as mock_unix_socket:
             # Make the instance that gets returned by ClamdUnixSocket()
             mock_clamd = MagicMock()
@@ -78,13 +87,17 @@ class TestMockClamAVLimitTesting:
                     context={"user": user["name"], "ignore_auth": False},
                     package_id=dataset["id"],
                     url="",
-                    upload=FlaskFileStorage(stream=f, filename="eicar.com.txt", content_type="text/plain"),
+                    upload=FlaskFileStorage(
+                        stream=f,
+                        filename="eicar.com.txt",
+                        content_type="text/plain",
+                    ),
                     name="Infected File",
                 )
                 assert "id" in res, "Resource was not created successfully:" + res
 
     @pytest.mark.ckan_config("ckanext.clamav.upload_unscanned", "True")
-    def test_clamav_connection_error_allow_unscanned(self, eicar_file_path):
+    def test_clamav_connection_error_allow_unscanned(self, eicar_file_path: Path):
         with patch("ckanext.clamav.utils.ClamdUnixSocket") as mock_unix_socket:
             # Make the instance that gets returned by ClamdUnixSocket()
             mock_clamd = MagicMock()
@@ -102,7 +115,11 @@ class TestMockClamAVLimitTesting:
                     context={"user": user["name"], "ignore_auth": False},
                     package_id=dataset["id"],
                     url="",
-                    upload=FlaskFileStorage(stream=f, filename="eicar.com.txt", content_type="text/plain"),
+                    upload=FlaskFileStorage(
+                        stream=f,
+                        filename="eicar.com.txt",
+                        content_type="text/plain",
+                    ),
                     name="Infected File",
                 )
                 assert "id" in res, "Resource was not created successfully:" + res
