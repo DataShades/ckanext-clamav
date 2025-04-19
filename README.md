@@ -1,14 +1,33 @@
-[![Tests](https://github.com/DataShades/ckanext-clamav/workflows/Tests/badge.svg?branch=main)](https://github.com/DataShades/ckanext-clamav/actions)
+[![Test](https://github.com/DataShades/ckanext-clamav/actions/workflows/test.yml/badge.svg)](https://github.com/DataShades/ckanext-clamav/actions/workflows/test.yml)
+[![codecov](https://codecov.io/github/DataShades/ckanext-clamav/graph/badge.svg)](https://codecov.io/github/DataShades/ckanext-clamav)
 
 # ckanext-clamav
 
 This is a basic example that helps to scan uploaded resources for malwares with clamd library.
 
+Note: This plugin provides a custom IUploader implementation to intercept and scan 
+uploaded files. However, the implementation does not return an object, allowing the 
+actual IUploader implementation to take effect. If using an actual custom uploader 
+such as ckanext-s3filestore, 'clamav' needs to come earlier in the configured plugin
+order.
+
+## Versions supported and Requirements
+
+Compatibility with core CKAN versions:
+
+  | CKAN version   | Compatibility                                                                       |
+  | -------------- |-------------------------------------------------------------------------------------|
+  | 2.7            | no longer supported                                                                 |
+  | 2.8            | no longer supported                                 | 
+  | 2.9            | unknown (last supported v1.1.0 Python3) Must: `pip install "setuptools>=44.1.0,<71"` |
+  | 2.10           | yes                                                                                 |
+  | 2.11           | yes                                                                                 |
+
 ## Installation
 
 Clamd library uses clamav tool, and you must install it into your environment, to make this extension work.
 
-For example, to install ClamAV on Ubuntu:
+For example, to install ClamAV on Ubuntu for Local Unix Socket:
 
 1. Install ClamAV with APT
 	```

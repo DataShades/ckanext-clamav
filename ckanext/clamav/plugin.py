@@ -1,7 +1,10 @@
+from typing import Any, Optional
+
 import ckan.plugins as p
 import ckan.plugins.toolkit as toolkit
+from ckan.common import CKANConfig
 
-from ckanext.clamav.utils import scan_file_for_viruses
+from . import utils
 
 
 class ClamavPlugin(p.SingletonPlugin):
@@ -10,15 +13,19 @@ class ClamavPlugin(p.SingletonPlugin):
 
     # IConfigurer
 
-    def update_config(self, config_):
-        toolkit.add_template_directory(config_, "templates")
-        toolkit.add_public_directory(config_, "public")
+    def update_config(self, config: 'CKANConfig'):
+        toolkit.add_template_directory(config, "templates")
+        toolkit.add_public_directory(config, "public")
         toolkit.add_resource("fanstatic", "clamav")
 
     # IUploader
 
-    def get_resource_uploader(self, data_dict):
+    def get_resource_uploader(self, data_dict: dict[str, Any]):
         if not data_dict.get("upload"):
             return
 
-        scan_file_for_viruses(data_dict)
+        utils.scan_file_for_viruses(data_dict)
+
+    def get_uploader(self, upload_to: str,
+                     old_filename: Optional[str]):
+        return

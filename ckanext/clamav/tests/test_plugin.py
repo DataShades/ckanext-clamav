@@ -1,53 +1,49 @@
-"""
-Tests for plugin.py.
+import os
 
-Tests are written using the pytest library (https://docs.pytest.org), and you
-should read the testing guidelines in the CKAN docs:
-https://docs.ckan.org/en/2.9/contributing/testing.html
+import requests
+import pytest
+from pathlib import Path
 
-To write tests for your extension you should install the pytest-ckan package:
+from ckan.tests import helpers, factories
+from werkzeug.datastructures import FileStorage as FlaskFileStorage
 
-    pip install pytest-ckan
+clean_string = b"safe file content"
+EICAR_URL = "https://secure.eicar.org/eicar.com.txt"
+EICAR_LOCAL_PATH = Path("tests/eicar.com.txt")
 
-This will allow you to use CKAN specific fixtures on your tests.
-
-For instance, if your test involves database access you can use `clean_db` to
-reset the database:
-
-    import pytest
-
-    from ckan.tests import factories
-
-    @pytest.mark.usefixtures("clean_db")
-    def test_some_action():
-
-        dataset = factories.Dataset()
-
-        # ...
-
-For functional tests that involve requests to the application, you can use the
-`app` fixture:
-
-    from ckan.plugins import toolkit
-
-    def test_some_endpoint(app):
-
-        url = toolkit.url_for('myblueprint.some_endpoint')
-
-        response = app.get(url)
-
-        assert response.status_code == 200
+# This is to allow localhost testing or container testing by setting CLAMAV_HOST, default localhost
+clamav_host = os.environ.get('CLAMAV_HOST', 'localhost')
+clamav_port = os.environ.get('CLAMAV_PORT', '3310')
+clamav_socket = os.environ.get('CLAMAV_SOCKET', '/var/run/clamav/clamd.ctl')
 
 
-To temporary patch the CKAN configuration for the duration of a test you can use:
+@pytest.fixture(scope="session")
+def eicar_file_path():
+    EICAR_LOCAL_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if not EICAR_LOCAL_PATH.exists():
+        response = requests.get(EICAR_URL)
+        response.raise_for_status()
+        with open(EICAR_LOCAL_PATH, "wb") as f:
+            f.write(response.content)
+    return EICAR_LOCAL_PATH
 
-    import pytest
 
-    @pytest.mark.ckan_config("ckanext.myext.some_key", "some_value")
-    def test_some_action():
-        pass
-"""
-import ckanext.clamav.plugin as plugin
+@pytest.mark.usefixtures(u"clean_db", u"clean_index", u'with_plugins')
+@pytest.mark.ckan_config("ckan.plugins", "clamav")
+@pytest.mark.ckan_config("ckanext.clamav.upload_unscanned", "True")
+class TestUploadedUnscannedFlag:
 
-def test_plugin():
-    pass
+    def test_clamav_not_called_on_upload_of_test_file(self, eicar_file_path):
+        user = factories.Sysadmin()
+        dataset = factories.Dataset(user=user)
+
+        with open(eicar_file_path, "rb") as f:
+            res = helpers.call_action(
+                "resource_create",
+                context={"user": user["name"], "ignore_auth": False},
+                package_id=dataset["id"],
+                url="",
+                upload=FlaskFileStorage(stream=f, filename="eicar.com.txt", content_type="text/plain"),
+                name="Infected File",
+            )
+            assert "eicar.com.txt" in str(res), res  # provide nice message if we did not throw exception

@@ -1,0 +1,24 @@
+{
+  "name": "ckanext-clamav",
+  "version": "1.0.0",
+  "description": "CKAN: The Open Source Data Portal Software ==========================================",
+  "dependencies": {
+  },
+  "devDependencies": {
+    "pyright": "^1.1.392"
+  },
+  "scripts": {
+    "test": "pyright"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DataShades/ckanext-clamav.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DataShades/ckanext-clamav/issues"
+  },
+  "homepage": "https://github.com/DataShades/ckanext-clamav"
+}

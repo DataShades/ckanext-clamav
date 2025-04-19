@@ -1,0 +1,200 @@
+name: Pytest
+on:
+  workflow_call:
+  workflow_dispatch:
+jobs:
+  test:
+    strategy:
+      matrix:
+        include: #ckan-image see https://github.com/ckan/ckan-docker-base, ckan-version controls other image tags
+          - ckan-version: "2.11"
+            ckan-image: "2.11-py3.10"
+            experimental: false
+          - ckan-version: "2.10"
+            ckan-image: "2.10-py3.10"
+            experimental: false
+          - ckan-version: "master"
+            ckan-image: "master"
+            experimental: true  # master is unstable, good to know if we are compatible or not
+      fail-fast: false
+
+    name: ${{ matrix.experimental && '**Fail_Ignored** ' || '' }} CKAN ${{ matrix.ckan-version }}
+    runs-on: ubuntu-latest
+    container:
+      image: ckan/ckan-dev:${{ matrix.ckan-image }}
+      options: --user root
+    services:
+      clamav:
+        image: clamav/clamav
+        ports:
+          - 3310:3310 #clamd
+          - 7357:7357 #milter
+      solr:
+        image: ckan/ckan-solr:${{ matrix.ckan-version }}-solr9
+      postgres:
+        image: ckan/ckan-postgres-dev:${{ matrix.ckan-version }}
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        #options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+          image: redis:7
+    env:
+      CKAN_SQLALCHEMY_URL: postgresql://ckan_default:pass@postgres/ckan_test
+      CKAN_DATASTORE_WRITE_URL: postgresql://datastore_write:pass@postgres/datastore_test
+      CKAN_DATASTORE_READ_URL: postgresql://datastore_read:pass@postgres/datastore_test
+      CKAN_SOLR_URL: http://solr:8983/solr/ckan
+      CKAN_REDIS_URL: redis://redis:6379/1
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: 3310
+      CLAMAV_SOCKET: /tmp/clamd.sock
+
+    steps:
+    - name: Cache ClamAV signatures
+      id: cache-clamav
+      uses: actions/cache@v4
+      with:
+        path: /var/lib/clamav
+        key: clamav-signatures-${{ runner.os }}-${{ matrix.ckan-version }}-${{ github.run_id }}
+        restore-keys: |
+          clamav-signatures-${{ runner.os }}-
+
+#    - name: Cache pip
+#      uses: actions/cache@v4
+#      with:
+#        path: ~/.cache/pip
+#        key: pip-${{ runner.os }}-${{ matrix.ckan-version }}-${{ hashFiles('*requirements.txt') }}
+#        restore-keys: |
+#          pip-${{ runner.os }}-
+
+    - name: Install clamav
+      run: |
+        set -eu
+        ## For Debian Container running as root
+        
+        apt-get update
+        apt-get install -y --no-install-recommends clamav clamav-daemon
+        
+        freshclam
+        
+        clamscan --version
+        
+        cat /etc/clamav/clamd.conf
+        
+        cp /etc/clamav/clamd.conf /etc/clamav/clamd.conf.sample
+        sed -e "s|.*\(LocalSocket\) .*|\1 /tmp/clamd.sock|" \
+        -e "s|.*\(User\) .*|\1 root|" \
+        "/etc/clamav/clamd.conf.sample" > "/etc/clamav/clamd.conf"
+
+## Please note that EICAR validation needs to be a text file, it won't work if embedded.
+## Leaving this here for reference if you want to have the file downloaded instead of dynamic via test_clamav_local eicar_file_path()
+#    - name: Verify ClamAV with EICAR test string
+#      run: |
+#        set -ex
+#        cd tests
+#        wget https://secure.eicar.org/eicar.com.txt
+#        #clamscan eicar.com.txt
+
+
+    - uses: actions/checkout@v4
+      continue-on-error: ${{ matrix.experimental }}
+    - name: Install requirements
+      # Install any extra requirements your extension has here (dev requirements, other extensions etc)
+      run: |
+        pip install -r requirements.txt
+        pip install -r dev-requirements.txt
+        pip install -e .
+
+    - name: Setup extension
+      # Extra initialization steps
+      run: |
+        # Replace default path to CKAN core config file with the one on the container
+        sed -i -e 's/use = config:.*/use = config:\/srv\/app\/src\/ckan\/test-core.ini/' test.ini
+
+        ckan -c test.ini db init
+        mkdir -p results
+
+    - name: ${{ matrix.experimental && '**Fail_Ignored** ' || '' }} Run tests
+      continue-on-error: ${{ matrix.experimental }}
+      run: |
+        clamd --foreground &
+        CLAMD_PID=$!
+        echo "clamd started with PID $CLAMD_PID"
+        ./.github/workflows/check_clamav_started.sh
+        
+        pytest --ckan-ini=test.ini --cov=ckanext.clamav --cov-branch --cov-report=xml --junit-xml=./results/junit_results.xml -o junit_family=legacy
+        
+        echo "Stopping clamd..."
+        kill $CLAMD_PID
+        wait $CLAMD_PID 2>/dev/null
+
+    - name: Generate Test results artifacts
+      continue-on-error: ${{ matrix.experimental }}
+      if: ${{ !cancelled() }}
+      run: |
+        set -ex
+        junit2html results/junit_results.xml results/pytest-results.html
+        
+        coverage html -d results/coverage_html
+
+
+    - name: Pytest Coverage Console Report
+      continue-on-error: ${{ matrix.experimental }}
+      if: ${{ !cancelled() }}
+      run: |
+        set -ex
+        coverage report -m
+
+    - name: Upload HTML coverage report
+      uses: actions/upload-artifact@v4
+      continue-on-error: ${{ matrix.experimental }}
+      if: ${{ !cancelled() }}
+      with:
+        name: combined-test-coverage-reports-${{ matrix.ckan-version }}
+        path: results
+
+    - name: ${{ matrix.experimental && '**Fail_Ignored** ' || '' }} Test Summary
+      uses: test-summary/action@v2
+      continue-on-error: ${{ matrix.experimental }}
+      with:
+        paths: "results/junit_results.xml"
+      if: ${{ !cancelled() }}
+
+
+    - name: Install packages required for codecov
+      continue-on-error: ${{ matrix.experimental }}
+      if: ${{ !cancelled() }}
+      run: |
+        #ubuntu based images    
+        apt-get install -y --no-install-recommends curl gpg
+        freshclam
+        clamscan --version
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v5
+      if: ${{ !cancelled() }}
+      continue-on-error: true #don't fail if we can't upload (ie a fork that does not have integration plugged in)
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        verbose: false # optional (default = false)
+
+
+    - name: Get Cover
+      uses: orgoro/coverage@3f13a558c5af7376496aa4848bf0224aead366ac #v3.2
+      if: ${{ !cancelled() }}
+      continue-on-error: true #don't fail if we can't upload (ie a fork that does not have integration plugged in)
+      with:
+          coverageFile: coverage.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload test results to Codecov
+      uses: codecov/test-results-action@v1
+      if: ${{ !cancelled() }}
+      continue-on-error: true #don't fail if we can't upload (ie a fork that does not have integration plugged in)
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        verbose: false # optional (default = false)
+
