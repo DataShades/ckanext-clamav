@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.33] - 2025-04-19
+
+### 🐛 Bug Fixes
+
+- Fix typing and ruff
+
+### ⚙️ Miscellaneous Tasks
+
+- Update version to 1.0.33
+
 ## [1.0.32] - 2025-04-19
 
 ### 🐛 Bug Fixes
