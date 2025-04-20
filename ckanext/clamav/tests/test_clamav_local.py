@@ -90,7 +90,7 @@ class TestClamAvLocalDaemon:
 
             # Verify ClamAV blocked the file
             assert (
-                "{'virus checker': ['malware has been found. filename: eicar.com.txt, "
+                "{'virus checker': ['Malware has been found. filename: eicar.com.txt, "
                 "signature: win.test.eicar_hdb-1.']}" in str(excinfo.value).lower()
             ), str(excinfo.value).lower()
 

@@ -1,0 +1,11 @@
+{% ckan_extends %}
+
+{% block primary_content_inner %}
+    {% snippet 'snippets/clamav_scan.html' %}
+    {{ super() }}
+{% endblock %}
+
+{% block styles %}
+    {{ super() }}
+    {% asset 'clamav/clamav-js' %}
+{% endblock %}
