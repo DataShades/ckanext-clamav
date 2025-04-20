@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ckanext-clamav"
-version = "1.0.33"
+version = "1.0.34"
 requires-python = ">=3.8"
 description = "Check uploaded resources for viruses for CKAN"
 classifiers = ["Development Status :: 5 - Production/Stable",
