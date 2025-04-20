@@ -2,11 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.0.33] - 2025-04-19
+## [1.0.34] - 2025-04-20
 
 ### 🐛 Bug Fixes
 
 - Fix typing and ruff
+- Fix config.py and adapters.py docstrings
 
 ### ⚙️ Miscellaneous Tasks
 
