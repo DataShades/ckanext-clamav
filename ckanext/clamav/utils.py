@@ -11,6 +11,7 @@ from ckan import logic
 from ckan import model
 from ckan.exceptions import CkanConfigurationException
 from ckan.types import ErrorDict
+from ckan.lib.api_token import _get_secret
 
 from . import config as c
 from .adapters import CustomClamdNetworkSocket
@@ -60,7 +61,7 @@ def scan_file_for_viruses(data_dict: dict[str, Any]) -> None:
             raise logic.ValidationError(err)
     elif status == ClamAvStatus.FOUND:
         error_msg: str = (
-            "malware has been found. "
+            "Malware has been found. "
             f"Filename: {file.filename}, signature: {signature}."
         )
         log.warning(error_msg)
@@ -106,7 +107,7 @@ def _scan_filestream(file: FileStorage) -> tuple[str, Optional[str]]:
         scan_result: Union[dict[str, tuple[str, Optional[str]]], None] = cd.instream(
             file.stream,
         )
-    except BufferTooLongError:
+    except (BufferTooLongError, BrokenPipeError):
         error_msg: str = (
             "The uploaded file exceeds the filesize limit. "
             "The file will not be scanned"
@@ -162,3 +163,11 @@ def _get_unscanned_file_message(file: FileStorage, pkg_id: str) -> str:
         "The unscanned file will be uploaded because unscanned fileupload is enabled. "
         f"File: {file.filename}, pkg: {pkg_id}, name: {file.filename or None}"
     )
+
+
+def get_secret(encode: bool) -> str:
+    """Return a secret string for a jwt encode/decode
+
+    We're using an internal func here, ideally, we either need to write a custom
+    one or to contribute into CKAN and make it public"""
+    return _get_secret(encode)

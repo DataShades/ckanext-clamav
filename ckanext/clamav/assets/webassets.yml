@@ -1,0 +1,8 @@
+clamav-js:
+  filter: rjsmin
+  output: ckanext-clamav/%(version)s-clamav-js.js
+  extra:
+    preload:
+      - base/main
+  contents:
+    - js/clamav-scan-file.js
